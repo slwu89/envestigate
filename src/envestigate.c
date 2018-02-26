@@ -40,7 +40,7 @@ SEXP hash_table(SEXP env){
     }
     ans = CDR(ans);
   }
-  
+
   UNPROTECT(1);
   return ret;
 }
@@ -74,4 +74,3 @@ static R_CallMethodDef callMethods[]  = {
 void R_init_envestigate(DllInfo *info){
   R_registerRoutines(info, NULL, callMethods, NULL, NULL);
 }
-
