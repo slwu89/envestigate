@@ -19,20 +19,25 @@ SEXP hash_table(SEXP env){
   ans = ret;
 
   for (i = 0; i < n; i++){
+    printf("i: %i \n",i); /* where are we? */
     frame = VECTOR_ELT(ht,i);
     j = 0;
     /* Count number of elements */
     while (frame != R_NilValue) {
+      printf("i: %i, j: %i \n",i,j); /* where are we? */
       j++;
       frame = CDR(frame);
     }
     if (j == 0){
+      printf("j == 0 \n");
       SETCAR(ans,R_NilValue);
     } else {
+      printf("j != 0 \n");
       SETCAR(ans,allocVector(STRSXP,j));
       frame = VECTOR_ELT(ht,i);
       j = 0;
       while (frame != R_NilValue) {
+        printf("i: %i, j: %i \n",i,j); /* where are we? */
         SET_STRING_ELT(CAR(ans),j,PRINTNAME(TAG(frame)));
         j++;
         frame = CDR(frame);
@@ -44,6 +49,15 @@ SEXP hash_table(SEXP env){
   UNPROTECT(1);
   return ret;
 }
+
+
+SEXP R_apply_fun(SEXP f, SEXP x, SEXP rho) {
+  SEXP call = PROTECT(LCONS(f, LCONS(x, R_NilValue)));
+  SEXP val = R_forceAndCall(call, 1, rho);
+  UNPROTECT(1);
+  return val;
+}
+
 
 
 // SEXP hash_table_apply(SEXP env, SEXP fun){
@@ -200,6 +214,7 @@ static R_CallMethodDef callMethods[]  = {
   {"C_is_hashed", (DL_FUNC)&is_hashed, 1},
   {"C_hash_table", (DL_FUNC)&hash_table, 1},
   {"C_hash_value", (DL_FUNC)&hash_value, 1},
+  {"C_apply_fun", (DL_FUNC)&R_apply_fun, 3},
   {NULL, NULL, 0}
 };
 
