@@ -3,7 +3,7 @@
 #' Returns the hash table in a list of character vectors from the provided hashed environment.
 #'
 #' @name hash_table
-#' @export 
+#' @export
 #' @param env An environment.
 #' @return object of class 'hash_table', a list of character vectors
 #' @useDynLib envestigate C_hash_table
@@ -19,7 +19,7 @@ hash_table <- function(env){
   ans$size <- length(ans$buckets)
   bc <- sapply(ans$buckets,length)
   ans$num_entries <- sum(bc)
-  ans$num_collisions <- 
+  ans$num_collisions <-
     sum(sapply(ans$buckets,function(x) if (length(x)>1) length(x)-1 else 0))
   ans$num_empty_buckets <- sum(bc==0)
   ans$empty_buckets <- which(bc==0)
