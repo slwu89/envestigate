@@ -11,14 +11,28 @@
 apply_fun <- function(f, x) .Call(C_apply_fun, f, x, environment())
 
 
-#' hash_apply2
+#' hash_apply
 #'
 #'
-#' @name hash_apply2
+#' X: environment, FUN function, ...
+#' @name hash_apply
 #' @export
-#' @useDynLib envestigate C_hash_apply2
+#' @useDynLib envestigate C_hash_apply
 #'
-hash_apply2 <- function(env,f){
-  x <- pairlist(env,match.fun(f))
-  .Call(C_hash_apply2,x)
+hash_apply <- function(X,FUN,...){
+  call <- match.call(expand.dots = FALSE)
+  .Call(C_hash_apply,call,X,environment())
+}
+
+
+#' eapply2
+#'
+#'
+#' X: environment, FUN function, ...
+#' @name eapply2
+#' @export
+#' @useDynLib envestigate C_eapply2
+#'
+eapply2 <- function(X,FUN){
+  .Call(C_eapply2,X,FUN,environment())
 }

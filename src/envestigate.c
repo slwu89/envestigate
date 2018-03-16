@@ -50,6 +50,7 @@ SEXP hash_table(SEXP env){
   return ret;
 };
 
+
 /* ################################################################################
  * BEGIN HELPER FUNCTIONS
 ################################################################################ */
@@ -128,40 +129,149 @@ static void HashTableValues(SEXP table, int all, SEXP values, int *indx)
     for (i = 0; i < n; i++)
 	FrameValues(VECTOR_ELT(table, i), all, values, indx);
 }
-/* end helper functions */
 
-SEXP hash_apply2(SEXP args){
+/* ################################################################################
+ * END HELPER FUNCTIONS
+################################################################################ */
 
-  /* env: environment working over
-   * R_fcall: function call from R
-   * FUN:
-  */
-  SEXP env, R_fcall, FUN, tmp2, ind;
-  int i, k, k2;
+SEXP eapply2(SEXP env, SEXP fn, SEXP rho)
+{
+  if(!isEnvironment(env)) error("'env' should be an environment");
 
-  PROTECT(env = eval(CAR(args),R_BaseEnv));
-  if(Rf_isNull(env)){
-    error("cannot use null environment\n");
+    int n = HashTableSize(HASHTAB(env), 0);
+    SEXP R_fcall;
+
+    /* elements of hash table to map f(...) over */
+    SEXP tmp;
+    PROTECT(tmp = allocVector(VECSXP, n));
+    int k2 = 0;
+    HashTableValues(HASHTAB(env), 0, tmp, &k2);
+
+    if(!isFunction(fn)) error("'fn' must be a function");
+    if(!isEnvironment(rho)) error("'rho' should be an environment");
+
+    R_fcall = PROTECT(lang2(fn, R_NilValue));
+    for(int i = 0; i < n; i++) {
+        SETCADR(R_fcall, VECTOR_ELT(tmp, i));
+        eval(R_fcall, rho);
+    }
+    UNPROTECT(2);
+    return R_NilValue;
+}
+
+
+SEXP hash_apply(SEXP call, SEXP env, SEXP rho){
+
+  // we don't need the first symbol -- that's just the function 'enumerate'
+  SEXP args = CDR(call);
+
+  // similarly, we need to tell R that the symbol it wants to look up is FUN
+  // otherwise it can fail other symbol lookup
+  SEXP funSym = install("FUN"); args = CDR(args);
+
+  /* size of hash table */
+  int k = HashTableSize(HASHTAB(env), 0); // maybe replace with XX or envSym (not sure)
+  printf("k: %i\n",k);
+
+  /* elements of hash table to map f(...) over */
+  SEXP tmp;
+  PROTECT(tmp = allocVector(VECSXP, k));
+  int k2 = 0;
+  HashTableValues(HASHTAB(env), 0, tmp, &k2);
+
+  printf("k2: %i\n",k2);
+
+  SEXP R_fcall;
+  // R_fcall = PROTECT(LCONS(funSym,LCONS(R_DotsSymbol,R_NilValue)));
+
+  SEXP ind;
+  PROTECT(ind = allocVector(INTSXP, 1));
+
+  SEXP Xsym = install("X");
+  SEXP isym = install("i");
+  /* tmp :=  `[`(<elist>, i) */
+  PROTECT(tmp = LCONS(R_Bracket2Symbol,LCONS(Xsym, LCONS(isym, R_NilValue))));
+  /* fcall :=  <FUN>( tmp, ... ) */
+  PROTECT(R_fcall = LCONS(funSym, LCONS(tmp, LCONS(R_DotsSymbol, R_NilValue))));
+
+  defineVar(Xsym, tmp, rho);
+  INCREMENT_NAMED(tmp);
+  defineVar(isym, ind, rho);
+  INCREMENT_NAMED(ind);
+
+  for(int i = 0; i < k; i++) {
+    printf("i: %i\n",i);
+    R_forceAndCall(R_fcall, 1, rho);
   }
-  if(!isEnvironment(env)){
-    error("first argument must be an environment\n");
-  }
 
-  FUN = CADR(args);
-  if(!isSymbol(FUN)){
-    error("arguments must be symbolic");
-  }
-
-  /* size of the hash table */
-	k = HashTableSize(HASHTAB(env), 0);
-  PROTECT(tmp2 = allocVector(VECSXP, k));
-
-  /* number of values in hash table */
-  k2 = 0;
-	HashTableValues(HASHTAB(env), 0, tmp2, &k2);
-
+  UNPROTECT(4);
   return R_NilValue;
 };
+
+// SEXP hash_apply2(SEXP args, SEXP rho)
+// {
+//     SEXP env, R_fcall, FUN, tmp, tmp2, ind;
+//     int i, k, k2;
+//     int all = 0;
+//
+//     PROTECT(env = eval(CAR(args), rho));
+//     if(Rf_isNull(env)){
+//       error("use of NULL environment is defunct");
+//     }
+//     if(!isEnvironment(env)){
+//       error("argument must be an environment");
+//     }
+//
+//
+//     FUN = CADR(args);
+//     if (!isSymbol(FUN)){
+//       error("arguments must be symbolic");
+//     }
+//
+//     if(env == R_BaseEnv || env == R_BaseNamespace){
+//       error("environment cannot be the base environment or namespace");
+//     } else if (HASHTAB(env) != R_NilValue){
+//       k = HashTableSize(HASHTAB(env), all);
+//     } else {
+//       k = FrameSize(FRAME(env), all);
+//     }
+//
+//     PROTECT(tmp2 = allocVector(VECSXP, k));
+//
+//     k2 = 0;
+//     if(env == R_BaseEnv || env == R_BaseNamespace){
+//       error("environment cannot be the base environment or namespace");
+//     } else if(HASHTAB(env) != R_NilValue){
+//       HashTableValues(HASHTAB(env), all, tmp2, &k2);
+//     } else {
+//       FrameValues(FRAME(env), all, tmp2, &k2);
+//     }
+//
+//     SEXP Xsym = install("X");
+//     SEXP isym = install("i");
+//     PROTECT(ind = allocVector(INTSXP, 1));
+//     /* tmp :=  `[`(<elist>, i) */
+//     PROTECT(tmp = LCONS(R_Bracket2Symbol,
+// 			LCONS(Xsym, LCONS(isym, R_NilValue))));
+//     /* fcall :=  <FUN>( tmp, ... ) */
+//     PROTECT(R_fcall = LCONS(FUN, LCONS(tmp, LCONS(R_DotsSymbol, R_NilValue))));
+//
+//     defineVar(Xsym, tmp2, rho);
+//     INCREMENT_NAMED(tmp2);
+//     defineVar(isym, ind, rho);
+//     INCREMENT_NAMED(ind);
+//
+//     for(i = 0; i < k2; i++) {
+// 	     INTEGER(ind)[0] = i+1;
+// 	      SEXP tmp = R_forceAndCall(R_fcall, 1, rho);
+// 	       if (MAYBE_REFERENCED(tmp))
+// 	        tmp = lazy_duplicate(tmp);
+//     }
+//
+//     UNPROTECT(5);
+//     return(R_NilValue);
+// }
+
 
 // /*
 //  * apply a function to all objects in an environment and return the
@@ -169,57 +279,88 @@ SEXP hash_apply2(SEXP args){
 //  * Equivalent to lapply(as.list(env, all.names=all.names), FUN, ...)
 //  */
 // /* This is a special .Internal */
-// SEXP hash_apply(SEXP call, SEXP op, SEXP args, SEXP rho){
-//   SEXP env, R_fcall, FUN, tmp, tmp2, ind;
-//   int i, k, k2;
-//   int /* boolean */ all, useNms;
-//   all = 0;
-//   useNms = 0;
+// SEXP attribute_hidden do_eapply(SEXP call, SEXP op, SEXP args, SEXP rho)
+// {
+//     SEXP env, ans, R_fcall, FUN, tmp, tmp2, ind;
+//     int i, k, k2;
+//     int /* boolean */ all, useNms;
 //
-//   PROTECT(env = eval(CAR(args), rho));
-//   if (Rf_isNull(env)){
-//     error("use of NULL environment is defunct");
-//   }
-//   if(!isEnvironment(env)){
-//     error("argument must be an environment");
-//   }
+//     checkArity(op, args);
 //
-//   FUN = CADR(args);
-//   if (!isSymbol(FUN)){
-//     error("arguments must be symbolic");
-//   }
+//     PROTECT(env = eval(CAR(args), rho));
+//     if (ISNULL(env))
+// 	error(_("use of NULL environment is defunct"));
+//     if( !isEnvironment(env) )
+// 	error(_("argument must be an environment"));
 //
-//   k = HashTableSize(HASHTAB(env), all);
+//     FUN = CADR(args);
+//     if (!isSymbol(FUN))
+// 	error(_("arguments must be symbolic"));
 //
-//   PROTECT(tmp2 = allocVector(VECSXP, k));
+//     /* 'all.names' : */
+//     all = asLogical(eval(CADDR(args), rho));
+//     if (all == NA_LOGICAL) all = 0;
 //
-//   k2 = 0;
+//     /* 'USE.NAMES' : */
+//     useNms = asLogical(eval(CADDDR(args), rho));
+//     if (useNms == NA_LOGICAL) useNms = 0;
+//
+//     if (env == R_BaseEnv || env == R_BaseNamespace)
+// 	k = BuiltinSize(all, 0);
+//     else if (HASHTAB(env) != R_NilValue)
+// 	k = HashTableSize(HASHTAB(env), all);
+//     else
+// 	k = FrameSize(FRAME(env), all);
+//
+//     PROTECT(ans  = allocVector(VECSXP, k));
+//     PROTECT(tmp2 = allocVector(VECSXP, k));
+//
+//     k2 = 0;
+//     if (env == R_BaseEnv || env == R_BaseNamespace)
+// 	BuiltinValues(all, 0, tmp2, &k2);
+//     else if (HASHTAB(env) != R_NilValue)
 // 	HashTableValues(HASHTAB(env), all, tmp2, &k2);
+//     else
+// 	FrameValues(FRAME(env), all, tmp2, &k2);
 //
-//   SEXP Xsym = install("X");
-//   SEXP isym = install("i");
+//     SEXP Xsym = install("X");
+//     SEXP isym = install("i");
+//     PROTECT(ind = allocVector(INTSXP, 1));
+//     /* tmp :=  `[`(<elist>, i) */
+//     PROTECT(tmp = LCONS(R_Bracket2Symbol,
+// 			LCONS(Xsym, LCONS(isym, R_NilValue))));
+//     /* fcall :=  <FUN>( tmp, ... ) */
+//     PROTECT(R_fcall = LCONS(FUN, LCONS(tmp, LCONS(R_DotsSymbol, R_NilValue))));
 //
-//   PROTECT(ind = allocVector(INTSXP, 1));
-//   /* tmp :=  `[`(<elist>, i) */
-//   PROTECT(tmp = LCONS(R_Bracket2Symbol,LCONS(Xsym, LCONS(isym, R_NilValue))));
-//   /* fcall :=  <FUN>( tmp, ... ) */
-//   PROTECT(R_fcall = LCONS(FUN, LCONS(tmp, LCONS(R_DotsSymbol, R_NilValue))));
+//     defineVar(Xsym, tmp2, rho);
+//     INCREMENT_NAMED(tmp2);
+//     defineVar(isym, ind, rho);
+//     INCREMENT_NAMED(ind);
 //
-//   defineVar(Xsym, tmp2, rho);
-//   INCREMENT_NAMED(tmp2);
-//   defineVar(isym, ind, rho);
-//   INCREMENT_NAMED(ind);
+//     for(i = 0; i < k2; i++) {
+// 	INTEGER(ind)[0] = i+1;
+// 	SEXP tmp = R_forceAndCall(R_fcall, 1, rho);
+// 	if (MAYBE_REFERENCED(tmp))
+// 	    tmp = lazy_duplicate(tmp);
+// 	SET_VECTOR_ELT(ans, i, tmp);
+//     }
 //
-//   for(i = 0; i < k2; i++) {
-// 	   INTEGER(ind)[0] = i+1;
-// 	   SEXP tmp = R_forceAndCall(R_fcall, 1, rho);
-//      if(MAYBE_REFERENCED(tmp)){
-//        tmp = lazy_duplicate(tmp);
-//      }
-//   }
+//     if (useNms) {
+// 	SEXP names;
+// 	PROTECT(names = allocVector(STRSXP, k));
+// 	k = 0;
+// 	if (env == R_BaseEnv || env == R_BaseNamespace)
+// 	    BuiltinNames(all, 0, names, &k);
+// 	else if(HASHTAB(env) != R_NilValue)
+// 	    HashTableNames(HASHTAB(env), all, names, &k);
+// 	else
+// 	    FrameNames(FRAME(env), all, names, &k);
 //
-//   UNPROTECT(5);
-//   return(R_NilValue);
+// 	setAttrib(ans, R_NamesSymbol, names);
+// 	UNPROTECT(1);
+//     }
+//     UNPROTECT(6);
+//     return(ans);
 // }
 
 
@@ -234,27 +375,7 @@ SEXP R_apply_fun(SEXP f, SEXP x, SEXP rho) {
 
 
 
-// SEXP hash_table_apply(SEXP env, SEXP fun){
-//   SEXP R_fcall;
-//   SEXP  frame;
-//   SEXP ht = HASHTAB(env);
-//   int n, i, j;
-//
-//   if (ht==R_NilValue) return R_NilValue;
-//
-//   n = length(ht);
-//
-//   for (i = 0; i < n; i++){
-//     frame = VECTOR_ELT(ht,i);
-//     if(frame != R_NilValue){
-//
-//     }
-//   }
-//
-//   return R_NilValue;
-// }
-//
-//
+
 // SEXP lapply2(SEXP list, SEXP fn, SEXP rho)
 // {
 //     int n = length(list);
@@ -300,7 +421,9 @@ static R_CallMethodDef callMethods[]  = {
   {"C_hash_table", (DL_FUNC)&hash_table, 1},
   {"C_hash_value", (DL_FUNC)&hash_value, 1},
   {"C_apply_fun", (DL_FUNC)&R_apply_fun, 3},
-  {"C_hash_apply2", (DL_FUNC)&hash_apply2, 1},
+  {"C_hash_apply", (DL_FUNC)&hash_apply, 3},
+  {"C_eapply2", (DL_FUNC)&eapply2, 3},
+  // {"C_hash_apply2", (DL_FUNC)&hash_apply2, 2},
   {NULL, NULL, 0}
 };
 
