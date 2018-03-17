@@ -98,7 +98,6 @@ SEXP eapply3(SEXP call, SEXP rho){
   /* env is the hash table */
   SEXP env = PROTECT(eval(envSymbol,rho));
   int n = HashTableSize(HASHTAB(env), 0);
-  printf("n: %i\n",n);
 
   /* get the values out of the hash table as vector/list: vals */
   SEXP vals;
@@ -115,7 +114,6 @@ SEXP eapply3(SEXP call, SEXP rho){
   PROTECT(R_fcall = LCONS(funSymbol, LCONS(tmp , LCONS(R_DotsSymbol,R_NilValue))));
 
   /* map the function(...) over the hash table */
-  printf("loop over values in hash table\n");
   for(int j=0; j<n; j++){
     printf("j: %i\n",j);
     SETCADR(R_fcall, VECTOR_ELT(vals, j));
