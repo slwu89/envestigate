@@ -1,28 +1,16 @@
-#' apply_fun
-#'
-#' from https://ro-che.info/articles/2017-08-18-call-r-function-from-c
-#'
-#' @name apply_fun
-#' @export
-#' @param f a function
-#' @param x an argument
-#' @useDynLib envestigate C_apply_fun
-#'
-apply_fun <- function(f, x) .Call(C_apply_fun, f, x, environment())
 
-
-#' hash_apply
-#'
-#'
-#' X: environment, FUN function, ...
-#' @name hash_apply
-#' @export
-#' @useDynLib envestigate C_hash_apply
-#'
-hash_apply <- function(X,FUN,...){
-  call <- match.call(expand.dots = FALSE)
-  .Call(C_hash_apply,call,X,environment())
-}
+# #' hash_apply
+# #'
+# #'
+# #' X: environment, FUN function, ...
+# #' @name hash_apply
+# #' @export
+# #' @useDynLib envestigate C_hash_apply
+# #'
+# hash_apply <- function(X,FUN,...){
+#   call <- match.call(expand.dots = FALSE)
+#   .Call(C_hash_apply,call,X,environment())
+# }
 
 
 #' eapply2
@@ -35,4 +23,28 @@ hash_apply <- function(X,FUN,...){
 #'
 eapply2 <- function(X,FUN){
   .Call(C_eapply2,X,FUN,environment())
+}
+
+#' eapply3
+#'
+#' eapply3(X = xx,FUN = function(x=2,y=3,...){print(x);print(y);nest(...)},z=1)
+#'
+#' X: environment, FUN function, ...
+#' @name eapply3
+#' @export
+#' @useDynLib envestigate C_eapply3
+#'
+eapply3 <- function(X,FUN,...){
+  call <- match.call(expand.dots = FALSE)
+  .Call(C_eapply3,call,environment())
+}
+
+#' call_function
+#' @name call_function
+#' @export
+#' @useDynLib envestigate C_call_function
+#'
+call_function <- function(FUN,...){
+  call <- match.call(expand.dots = FALSE)
+  .Call(C_call_function,call,environment())
 }
