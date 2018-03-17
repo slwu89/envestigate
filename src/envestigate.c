@@ -1,6 +1,6 @@
 #include <Rinternals.h>
 #include <R_ext/Rdynload.h>
-#include "eapply_1.c"
+#include "helper.h"
 
 SEXP is_hashed(SEXP env){
   return ScalarLogical((HASHTAB(env)!=R_NilValue)? TRUE: FALSE);
@@ -106,20 +106,23 @@ SEXP eapply3(SEXP call, SEXP rho){
   int ix = 0;
   HashTableValues(HASHTAB(env), 0, vals, &ix);
 
-  /* make the bit of the function call that maps over values */
+  /* make the bit of the function call that indexes over the values in the hash table */
   SEXP tmp;
   PROTECT(tmp = LCONS(R_Bracket2Symbol, LCONS(envSymbol, R_NilValue)));
 
-  /* make the function call */
+  /* make the f(X[[i]],...) bit of the function call (tmp is the indexing) */
   SEXP R_fcall;
-  PROTECT(R_fcall = LCONS(funSymbol, LCONS(R_DotsSymbol,R_NilValue)));
+  PROTECT(R_fcall = LCONS(funSymbol, LCONS(tmp , LCONS(R_DotsSymbol,R_NilValue))));
 
+  /* map the function(...) over the hash table */
+  printf("loop over values in hash table\n");
+  for(int j=0; j<n; j++){
+    printf("j: %i\n",j);
+    SETCADR(R_fcall, VECTOR_ELT(vals, j));
+    R_forceAndCall(R_fcall, 1, rho);
+  };
 
-
-
-  R_forceAndCall(R_fcall, 1, rho);
-
-  UNPROTECT(3);
+  UNPROTECT(4);
   return R_NilValue;
 }
 
