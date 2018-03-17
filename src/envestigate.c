@@ -115,7 +115,6 @@ SEXP eapply3(SEXP call, SEXP rho){
 
   /* map the function(...) over the hash table */
   for(int j=0; j<n; j++){
-    printf("j: %i\n",j);
     SETCADR(R_fcall, VECTOR_ELT(vals, j));
     R_forceAndCall(R_fcall, 1, rho);
   };
